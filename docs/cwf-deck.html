@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Selene - CWF Solana Track</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; font-size: 10pt; line-height: 1.4; }
+  .page { width: 11in; height: 8.5in; padding: 0.45in 0.5in; background: #fff; position: relative; overflow: hidden; }
+  .accent { position: absolute; top: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg,#0ea5e9,#a78bfa); }
+  .night { color: #312e81; }
+  h1 { font-size: 24pt; letter-spacing: -0.02em; }
+  .sub { font-size: 12pt; color: #4f46e5; font-weight: 700; margin-top: 2px; }
+  .tag { display: inline-block; background: #eef2ff; color: #4338ca; font-weight: 700; font-size: 8.5pt; padding: 2px 10px; border-radius: 999px; margin-top: 10px; }
+  h2 { font-size: 10.5pt; margin: 14px 0 4px; text-transform: uppercase; letter-spacing: .04em; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px; }
+  table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+  td, th { border: 1px solid #e2e8f0; padding: 3px 6px; text-align: left; }
+  th { background: #f1f5f9; }
+  li { margin-left: 16px; margin-bottom: 2px; }
+  code { background: #f1f5f9; padding: 0 3px; border-radius: 3px; font-size: 8.5pt; }
+  .foot { position: absolute; bottom: 0.3in; left: 0.5in; right: 0.5in; font-size: 8pt; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 6px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="accent"></div>
+  <h1>Selene</h1>
+  <div class="sub">A privacy-first Solana wallet on mobile — your keys never touch the phone.</div>
+  <div><span class="tag">Solana Track ($100K/10) · Crypto World's Fair · Native Android + APK</span></div>
+
+  <h2>The Problem</h2>
+  <p>The next billion users arrive on mobile with a wallet already in their pocket. But phones are the weakest custody surface — seed phrases leak, keychains get scraped. The best wallet is the one you don't have to think about.</p>
+
+  <h2>What It Is</h2>
+  <p>Self-custody Solana wallet built on the <b>Solana Mobile Stack</b> with <b>Mobile Wallet Adapter</b>, Jetpack Compose, Kotlin. Every transaction is authorized inside your existing MWA wallet (Phantom, Solflare, Solana Seeker) over a secure local WebSocket — Selene sends unsigned payloads and receives signed txs. No seed, no private key, no keystore on disk.</p>
+
+  <h2>Features (implemented)</h2>
+  <table>
+    <tr><th>Feature</th><th>Implementation</th></tr>
+    <tr><td>MWA connect</td><td>LocalAssociationScenario — local WebSocket session, association intent, 90s grace window</td></tr>
+    <tr><td>SOL approvals</td><td>Legacy tx compiled in-app, authorized via wallet's signAndSendTransactions</td></tr>
+    <tr><td>USDC (SPL) transfers</td><td>Token Program v3 transfer, accounts resolved via getTokenAccountsByOwner</td></tr>
+    <tr><td>Auto token-account creation</td><td>Recipient without USDC account → ATA created on the fly (PDA derivation + create + transfer in one byte-exact legacy message)</td></tr>
+  </table>
+
+  <h2>Why We Win</h2>
+  <ul>
+    <li><b>Native Solana Mobile Stack, not a wrapper:</b> real MWA LocalAssociationScenario, real SPL transfers, real ATA creation — the exact primitives the Solana track rewards.</li>
+    <li><b>Shipping APK:</b> installable debug build (16.1 MB) — judges run it, they don't read about it.</li>
+    <li><b>Privacy is the point:</b> no telemetry, no analytics, no remote config — only your wallet and the public RPC.</li>
+    <li><b>Double eligibility:</b> also mobile-first fit for the Robinhood Chain track and the general pool.</li>
+  </ul>
+
+  <div class="foot">github.com/sidsri14/clockin-selene-wallet · app/build/outputs/apk/debug/app-debug.apk (16.1 MB) · Solana track, CWF 2026</div>
+</div>
+</body>
+</html>
