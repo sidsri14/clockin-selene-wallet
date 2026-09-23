@@ -182,16 +182,26 @@ fun SeleneApp() {
                         val from = rpc.getTokenAccountsByOwner(sess.addressBase58, USDC_MINT)
                             .firstOrNull { it.amount >= units }
                             ?: throw IllegalArgumentException("Insufficient USDC balance")
-                        val dest = rpc.getTokenAccountsByOwner(Base58.encodeToString(recipient), USDC_MINT)
+                        val existingDest = rpc.getTokenAccountsByOwner(Base58.encodeToString(recipient), USDC_MINT)
                             .firstOrNull()
-                            ?: throw IllegalArgumentException("Recipient has no USDC account yet")
-                        message = TransactionBuilder.splTransfer(
-                            sess.publicKey,
-                            Base58.decodeToByteArray(from.pubkey),
-                            Base58.decodeToByteArray(dest.pubkey),
-                            units,
-                            blockhashBytes
-                        )
+                        message = if (existingDest == null) {
+                            TransactionBuilder.splTransferCreate(
+                                feePayer = sess.publicKey,
+                                fromTokenAccount = Base58.decodeToByteArray(from.pubkey),
+                                toOwner = recipient,
+                                mint = Base58.decodeToByteArray(USDC_MINT),
+                                amount = units,
+                                recentBlockhash = blockhashBytes
+                            )
+                        } else {
+                            TransactionBuilder.splTransfer(
+                                sess.publicKey,
+                                Base58.decodeToByteArray(from.pubkey),
+                                Base58.decodeToByteArray(existingDest.pubkey),
+                                units,
+                                blockhashBytes
+                            )
+                        }
                     }
                 }
                 val signatures = mwa.signAndSendTransactions(sess.client, listOf(message))

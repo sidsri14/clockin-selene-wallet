@@ -77,9 +77,10 @@ class MwaWallet(private val context: Context) {
 
     suspend fun signAndSendTransactions(
         client: MobileWalletAdapterClient,
-        transactions: List<ByteArray>
+        messages: List<ByteArray>
     ): List<String> = withContext(Dispatchers.IO) {
         try {
+            val transactions = messages.map { dev.selene.wallet.core.wrapUnsignedTransaction(it) }
             client.signAndSendTransactions(transactions.toTypedArray(), null, null, null, null, null)
                 .get()
                 .signatures

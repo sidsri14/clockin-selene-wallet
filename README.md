@@ -22,6 +22,7 @@ The design language — a quiet crescent moon on a deep night sky — reflects t
 | MWA connect | `LocalAssociationScenario` — local WebSocket session, launched via association intent, 90s grace window |
 | SOL approvals | Legacy transaction compiled in-app, authorized via wallet's `signAndSendTransactions` |
 | USDC (SPL) transfers | Token Program v3 transfer, source/destination resolved via `getTokenAccountsByOwner` |
+| **Auto token-account creation** | Recipients without a USDC account get an Associated Token Account created on the fly (PDA derivation + ATA create + transfer in one byte-exact legacy message) |
 | Balances | Mainnet RPC (`api.mainnet-beta.solana.com`) — SOL via `getBalance`, USDC via parsed token accounts |
 | Activity log | `getSignaturesForAddress` + `getSignatureStatuses` with per-tx confirmed/failed state |
 | Address UX | Copy-to-clipboard chip, truncated monospace display, 32-byte base58 validation |
@@ -48,14 +49,18 @@ app/src/main/java/dev/selene/wallet/
 ├── MainActivity.kt               # entry point
 ├── core/
 │   ├── Base58.kt                 # base58 encode/decode
+│   ├── Ed25519.kt                # on-curve check (PDA validity)
+│   ├── AssociatedToken.kt        # findProgramAddress / ATA derivation
 │   ├── SolanaRpc.kt              # getBalance / token accounts / blockhash / history
-│   └── TransactionBuilder.kt     # legacy messages: SOL transfer, SPL Token Program v3 transfer
+│   └── TransactionBuilder.kt     # legacy messages: SOL, SPL transfer, ATA create+transfer
 ├── wallet/
 │   └── MwaWallet.kt              # LocalAssociationScenario lifecycle, authorize, signAndSend
 └── ui/
     ├── SeleneTheme.kt            # night palette (amethyst/mint on deep navy)
     └── SeleneApp.kt              # state machine, dashboard, send dialog
 ```
+
+Transaction serialization is verified **byte-exact against `@solana/web3.js` 1.99 + `@solana/spl-token` 0.4.15** reference vectors (unit tests in `app/src/test/.../TransactionBuilderTest.kt`); messages use web3-compatible key bucketing and the `ProgramDerivedAddress` PDA hash domain.
 
 ## Build it
 
@@ -76,7 +81,6 @@ Build with the bundled wrapper; configure your SDK path via `local.properties` (
 
 ## Roadmap
 
-- **Auto token-account creation** (ATA PDAs) so recipients without USDC accounts can be paid directly
 - **Versioned transactions** (v0) and priority fees
 - **USDC quote + fiat display**, memo support
 - **Stealth privacy mode** — toggle to hide balances/activity on the dashboard (upstream of the StealthShield privacy program)

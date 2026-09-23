@@ -3,31 +3,59 @@ package dev.selene.wallet.core
 class AccountMeta(val pubkey: ByteArray, val isSigner: Boolean, val isWritable: Boolean)
 
 class CompiledInstruction(
-    val programIdIndex: Int,
-    val accountIndexes: IntArray,
+    val programId: ByteArray,
+    val accountKeys: List<ByteArray>,
     val data: ByteArray
 )
 
 class LegacyMessage(
-    metas: List<AccountMeta>,
+    private val metas: List<AccountMeta>,
     val recentBlockhash: ByteArray,
-    val instructions: List<CompiledInstruction>
+    private val instructions: List<CompiledInstruction>
 ) {
-    val numRequiredSignatures = metas.count { it.isSigner }
-    val numReadonlySignedAccounts = metas.count { it.isSigner && !it.isWritable }
-    val numReadonlyUnsignedAccounts = metas.count { !it.isSigner && !it.isWritable }
-    val accountKeys = dedupe(metas)
-
-    private fun dedupe(metas: List<AccountMeta>): List<ByteArray> {
-        val seen = LinkedHashMap<String, ByteArray>()
-        for (m in metas) {
-            val key = Base58.encodeToString(m.pubkey)
-            if (!seen.containsKey(key)) seen[key] = m.pubkey
-        }
-        return seen.values.toList()
-    }
-
     fun compile(): ByteArray {
+        val order = LinkedHashMap<String, ByteArray>()
+        val signer = HashMap<String, Boolean>()
+        val writable = HashMap<String, Boolean>()
+        for (m in metas) {
+            val k = Base58.encodeToString(m.pubkey)
+            if (!order.containsKey(k)) {
+                order[k] = m.pubkey
+                signer[k] = m.isSigner
+                writable[k] = m.isWritable
+            } else {
+                if (m.isSigner) signer[k] = true
+                if (m.isWritable) writable[k] = true
+            }
+        }
+
+        val writableSigned = mutableListOf<ByteArray>()
+        val readonlySigned = mutableListOf<ByteArray>()
+        val writableUnsigned = mutableListOf<ByteArray>()
+        val readonlyUnsigned = mutableListOf<ByteArray>()
+        for (key in order.values) {
+            val k = Base58.encodeToString(key)
+            val isSigner = signer[k] ?: false
+            val isWritable = writable[k] ?: false
+            when {
+                isSigner && isWritable -> writableSigned.add(key)
+                isSigner -> readonlySigned.add(key)
+                isWritable -> writableUnsigned.add(key)
+                else -> readonlyUnsigned.add(key)
+            }
+        }
+        // web3 sorts the 4 buckets by (signer desc, writable desc), then base58 string
+        // ascending inside each bucket (matches @solana/web3.js compileMessage sort).
+        fun sorted(bucket: MutableList<ByteArray>): List<ByteArray> =
+            bucket.sortedBy { Base58.encodeToString(it) }
+        val accountKeys = sorted(writableSigned) + sorted(readonlySigned) +
+            sorted(writableUnsigned) + sorted(readonlyUnsigned)
+        val indexOf = accountKeys.map { Base58.encodeToString(it) }
+
+        val numRequiredSignatures = writableSigned.size + readonlySigned.size
+        val numReadonlySignedAccounts = readonlySigned.size
+        val numReadonlyUnsignedAccounts = readonlyUnsigned.size
+
         val out = ByteArrayOutputStreamLE()
         out.writeByte(numRequiredSignatures)
         out.writeByte(numReadonlySignedAccounts)
@@ -37,9 +65,11 @@ class LegacyMessage(
         out.write(recentBlockhash)
         out.writeShortVec(instructions.size)
         for (ins in instructions) {
-            out.writeByte(ins.programIdIndex)
-            out.writeShortVec(ins.accountIndexes.size)
-            ins.accountIndexes.forEach { out.writeByte(it) }
+            out.writeByte(indexOf.indexOf(Base58.encodeToString(ins.programId)))
+            out.writeShortVec(ins.accountKeys.size)
+            for (acc in ins.accountKeys) {
+                out.writeByte(indexOf.indexOf(Base58.encodeToString(acc)))
+            }
             out.writeShortVec(ins.data.size)
             out.write(ins.data)
         }
@@ -85,6 +115,19 @@ fun u64Le(value: Long): ByteArray {
     return out
 }
 
+/**
+ * Serializes an unsigned legacy transaction: compact-u16 signature count followed by a
+ * 64-byte padding signature per signer, then the message. Required by Mobile Wallet
+ * Adapter, which validates the transaction envelope before requesting signatures.
+ */
+fun wrapUnsignedTransaction(message: ByteArray, numSigners: Int = 1): ByteArray {
+    val out = ByteArrayOutputStreamLE()
+    out.writeShortVec(numSigners)
+    repeat(numSigners) { out.write(ByteArray(64)) }
+    out.write(message)
+    return out.toByteArray()
+}
+
 object SystemProgram {
     const val ID = "11111111111111111111111111111111"
     const val TRANSFER = 2
@@ -95,6 +138,10 @@ object TokenProgram {
     const val TRANSFER = 3
 }
 
+object AssociatedTokenProgram {
+    const val ID = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+}
+
 object TransactionBuilder {
     fun solTransfer(from: ByteArray, to: ByteArray, lamports: Long, recentBlockhash: ByteArray): ByteArray {
         val system = Base58.decodeToByteArray(SystemProgram.ID)
@@ -103,14 +150,17 @@ object TransactionBuilder {
             AccountMeta(to, false, true),
             AccountMeta(system, false, false)
         )
-        val keyIndex = metas.map { Base58.encodeToString(it.pubkey) }
+        // System program encodes its instruction tag as u32 LE (matches @solana/web3.js).
         val data = ByteArrayOutputStreamLE().apply {
             writeByte(SystemProgram.TRANSFER)
+            writeByte(0)
+            writeByte(0)
+            writeByte(0)
             write(u64Le(lamports))
         }.toByteArray()
         val instruction = CompiledInstruction(
-            programIdIndex = keyIndex.indexOf(Base58.encodeToString(system)),
-            accountIndexes = intArrayOf(keyIndex.indexOf(Base58.encodeToString(to))),
+            programId = system,
+            accountKeys = listOf(from, to),
             data = data
         )
         return LegacyMessage(metas, recentBlockhash, listOf(instruction)).compile()
@@ -130,20 +180,78 @@ object TransactionBuilder {
             AccountMeta(toTokenAccount, false, true),
             AccountMeta(token, false, false)
         )
-        val keyIndex = metas.map { Base58.encodeToString(it.pubkey) }
         val data = ByteArrayOutputStreamLE().apply {
             writeByte(TokenProgram.TRANSFER)
             write(u64Le(amount))
         }.toByteArray()
         val instruction = CompiledInstruction(
-            programIdIndex = keyIndex.indexOf(Base58.encodeToString(token)),
-            accountIndexes = intArrayOf(
-                keyIndex.indexOf(Base58.encodeToString(fromTokenAccount)),
-                keyIndex.indexOf(Base58.encodeToString(toTokenAccount)),
-                keyIndex.indexOf(Base58.encodeToString(fromOwner))
-            ),
+            programId = token,
+            accountKeys = listOf(fromTokenAccount, toTokenAccount, fromOwner),
             data = data
         )
         return LegacyMessage(metas, recentBlockhash, listOf(instruction)).compile()
+    }
+
+    fun createAssociatedTokenAccount(
+        funder: ByteArray,
+        ata: ByteArray,
+        owner: ByteArray,
+        mint: ByteArray
+    ): CompiledInstruction {
+        // spl-token 0.4.x emits an empty data payload for the classic ATA create
+        // instruction (matches @solana/web3.js createAssociatedTokenAccountInstruction).
+        val data = ByteArray(0)
+        return CompiledInstruction(
+            programId = Base58.decodeToByteArray(AssociatedTokenProgram.ID),
+            accountKeys = listOf(
+                funder,
+                ata,
+                owner,
+                mint,
+                Base58.decodeToByteArray(SystemProgram.ID),
+                Base58.decodeToByteArray(TokenProgram.ID)
+            ),
+            data = data
+        )
+    }
+
+    fun splTransferCreate(
+        feePayer: ByteArray,
+        fromTokenAccount: ByteArray,
+        toOwner: ByteArray,
+        mint: ByteArray,
+        amount: Long,
+        recentBlockhash: ByteArray
+    ): ByteArray {
+        val ata = AssociatedToken.deriveAta(mint, toOwner)
+        val atoken = Base58.decodeToByteArray(AssociatedTokenProgram.ID)
+        val token = Base58.decodeToByteArray(TokenProgram.ID)
+        val system = Base58.decodeToByteArray(SystemProgram.ID)
+
+        val create = CompiledInstruction(
+            programId = atoken,
+            accountKeys = listOf(feePayer, ata, toOwner, mint, system, token),
+            data = ByteArray(0)
+        )
+        val transfer = CompiledInstruction(
+            programId = token,
+            accountKeys = listOf(fromTokenAccount, ata, feePayer),
+            data = ByteArrayOutputStreamLE().apply {
+                writeByte(TokenProgram.TRANSFER)
+                write(u64Le(amount))
+            }.toByteArray()
+        )
+
+        val metas = listOf(
+            AccountMeta(feePayer, true, true),
+            AccountMeta(fromTokenAccount, false, true),
+            AccountMeta(ata, false, true),
+            AccountMeta(toOwner, false, false),
+            AccountMeta(mint, false, false),
+            AccountMeta(system, false, false),
+            AccountMeta(token, false, false),
+            AccountMeta(atoken, false, false)
+        )
+        return LegacyMessage(metas, recentBlockhash, listOf(create, transfer)).compile()
     }
 }

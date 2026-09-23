@@ -58,4 +58,6 @@ dependencies {
     runtimeOnly("com.neovisionaries:nv-websocket-client:2.14")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    testImplementation("junit:junit:4.13.2")
 }
