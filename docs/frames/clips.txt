@@ -1,0 +1,7 @@
+file 'D:/web3/clockin-selene-wallet/docs/frames/wc-01.mp4'
+file 'D:/web3/clockin-selene-wallet/docs/frames/wc-02.mp4'
+file 'D:/web3/clockin-selene-wallet/docs/frames/wc-03.mp4'
+file 'D:/web3/clockin-selene-wallet/docs/frames/wc-04.mp4'
+file 'D:/web3/clockin-selene-wallet/docs/frames/wc-05.mp4'
+file 'D:/web3/clockin-selene-wallet/docs/frames/wc-06.mp4'
+file 'D:/web3/clockin-selene-wallet/docs/frames/wc-07.mp4'
