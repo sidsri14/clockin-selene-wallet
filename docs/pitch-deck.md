@@ -68,7 +68,9 @@ Include a mock: Send sheet with asset toggle + recipient + amount.
 
 ## Slide 7 — Evidence & roadmap
 
-- ✅ Installs & runs: build verified, APK produced, launches on Android 36 emulator
+- Build verified: `testDebugUnitTest` and `assembleDebug` pass; the APK has a
+  launchable `MainActivity` and a valid v2 signature. Runtime MWA interaction
+  still requires an Android device or compatible emulator wallet.
 - ✅ Real RPC data flow wired end-to-end
 - → **Now:** ATA auto-open for first-time USDC recipients, v0 transactions, priority fees
 - → **Next:** stealth privacy mode (dapp-side of StealthShield), fiat/USD quote, chain-swap

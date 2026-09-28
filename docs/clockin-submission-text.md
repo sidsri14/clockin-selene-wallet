@@ -11,7 +11,9 @@ WebSocket association, so your seed never exists on the phone you carry everywhe
 
 ## What I built (evidence > claims)
 - **Native Android APK (16.8 MB)** — Jetpack Compose + Kotlin, single-screen
-  balance/send/activity UX. It installs and runs; judges start the app, not a description.
+  balance/send/activity UX. The current source passes `testDebugUnitTest` and
+  `assembleDebug`; the debug APK has package `dev.selene.wallet`, a launchable
+  `MainActivity`, and a valid v2 signature.
 - **Mobile Wallet Adapter depth** — LocalAssociationScenario integration: local WebSocket,
   association intent for in-wallet confirmation, 90-second grace window.
 - **Real Solana interactions** — SOL legacy transfers, USDC via Token Program v3
@@ -28,8 +30,10 @@ WebSocket association, so your seed never exists on the phone you carry everywhe
 https://github.com/sidsri14/clockin-selene-wallet
 
 ## Demo video
-Pitch deck: `docs/Selene-CLOCKIN-Deck.pdf`. Video link: *(paste YT/Loom — script at
-`docs/demo-video-script.md`)*
+https://github.com/sidsri14/clockin-selene-wallet/blob/main/docs/frames/selene-clockin-demo.mp4
+
+45.6-second recorded walkthrough. Pitch deck:
+`docs/Selene-CLOCKIN-Deck.pdf`.
 
 ## Why it wins
 CLOCK IN explicitly rewards deep Mobile Stack integration over web wrappers. Selene is the
